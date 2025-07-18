@@ -1,9 +1,7 @@
-package goodspace.backend.authorization.service;
+package goodspace.backend.authorization.service.goodspace;
 
-import goodspace.backend.authorization.dto.request.AccessTokenReissueRequestDto;
 import goodspace.backend.authorization.dto.request.SignInRequestDto;
 import goodspace.backend.authorization.dto.request.SignUpRequestDto;
-import goodspace.backend.authorization.dto.response.AccessTokenResponseDto;
 import goodspace.backend.authorization.dto.response.TokenResponseDto;
 import goodspace.backend.domain.user.GoodSpaceUser;
 import goodspace.backend.email.entity.EmailVerification;
@@ -22,8 +20,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.security.SecureRandom;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -33,8 +29,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class GoodSpaceAuthorizationServiceTest {
     private static final int SLEEP_FOR_GET_DIFFERENT_TOKEN = 1000;
     private static final String DEFAULT_PASSWORD = "defaultPassword!";
-
-    private final SecureRandom random = new SecureRandom();
 
     private final GoodSpaceAuthorizationService authorizationService;
     private final EmailVerificationRepository emailVerificationRepository;
@@ -152,34 +146,6 @@ class GoodSpaceAuthorizationServiceTest {
         }
     }
 
-    @Nested
-    class reissueAccessToken {
-        @Test
-        @DisplayName("전달한 토큰이 저장된 리프레쉬 토큰과 일치하면 엑세스 토큰을 발급한다")
-        void ifRefreshTokenIsLegalThenIssueAccessToken() {
-            // given
-            String refreshToken = existUser.getRefreshToken();
-
-            // when
-            AccessTokenResponseDto responseDto = authorizationService.reissueAccessToken(new AccessTokenReissueRequestDto(refreshToken));
-
-            // then
-            String accessToken = responseDto.accessToken();
-            boolean isLegalAccessToken = tokenProvider.validateToken(accessToken, TokenType.ACCESS);
-
-            assertThat(isLegalAccessToken).isTrue();
-        }
-
-        @Test
-        @DisplayName("저장된 리프레쉬 토큰과 일치하지 않으면 예외를 던진다")
-        void ifIllegalRefreshTokenThenThrowException() {
-            String differentRefreshToken = getDifferentRefreshToken(existUser.getRefreshToken());
-
-            assertThatThrownBy(() -> authorizationService.reissueAccessToken(new AccessTokenReissueRequestDto(differentRefreshToken)))
-                    .isInstanceOf(IllegalArgumentException.class);
-        }
-    }
-
     private EmailVerification createEntityFromFixture(EmailVerificationFixture fixture) {
         EmailVerification instance = fixture.getInstance();
         emailVerificationRepository.save(instance);
@@ -197,16 +163,5 @@ class GoodSpaceAuthorizationServiceTest {
 
         return (GoodSpaceUser) userRepository.findById(user.getId())
                 .orElseThrow();
-    }
-
-    private String getDifferentRefreshToken(String originalRefreshToken) {
-        String refreshToken = "";
-
-        while (refreshToken.equals(originalRefreshToken)) {
-            int randomUserId = random.nextInt();
-            refreshToken = tokenProvider.createToken(randomUserId, TokenType.REFRESH);
-        }
-
-        return refreshToken;
     }
 }

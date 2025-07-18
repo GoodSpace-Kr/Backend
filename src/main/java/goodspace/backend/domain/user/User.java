@@ -5,9 +5,7 @@ import goodspace.backend.domain.Order;
 import goodspace.backend.security.RefreshToken;
 import goodspace.backend.dto.UserMyPageDto;
 import jakarta.persistence.*;
-import lombok.*;
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
@@ -20,7 +18,7 @@ import java.util.List;
 @SuperBuilder
 @Getter
 @AllArgsConstructor
-public class User extends BaseEntity {
+public abstract class User extends BaseEntity {
     @Id
     @GeneratedValue
     private Long id;
