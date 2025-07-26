@@ -1,23 +1,31 @@
 package goodspace.backend.client.service;
 
+import goodspace.backend.admin.image.ImageManager;
+import goodspace.backend.admin.image.ImageManagerImpl;
 import goodspace.backend.client.dto.ClientBriefInfoResponseDto;
 import goodspace.backend.client.dto.ClientDetailsResponseDto;
 import goodspace.backend.client.dto.ItemBriefInfoResponseDto;
 import goodspace.backend.client.domain.Client;
+import goodspace.backend.fixture.ImageFixture;
 import goodspace.backend.global.domain.Item;
 import goodspace.backend.fixture.ClientFixture;
 import goodspace.backend.fixture.ItemFixture;
 import goodspace.backend.client.repository.ClientRepository;
+import goodspace.backend.global.domain.ItemImage;
 import goodspace.backend.global.repository.ItemRepository;
+import goodspace.backend.testUtil.ImageUtil;
 import lombok.RequiredArgsConstructor;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -28,22 +36,35 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @SpringBootTest
-@RequiredArgsConstructor(onConstructor_ = @Autowired)
 @Transactional
 class ClientServiceTest {
-    private final ClientService clientService;
-    private final ClientRepository clientRepository;
-    private final ItemRepository itemRepository;
+    final String DEFAULT_TITLE_IMAGE = ImageFixture.JAVA.encodedImage;
+    final String DEFAULT_TITLE_IMAGE_FILE_NAME = "title";
 
-    private Client clientA;
-    private Client clientB;
-    private Client hasItemClient;
-    private Client privateClient;
-    private Set<Client> publicClients;
-    private Set<Item> publicItems;
+    @Autowired
+    ClientService clientService;
+    @Autowired
+    ClientRepository clientRepository;
+    @Autowired
+    ItemRepository itemRepository;
+    @Autowired
+    ImageUtil imageUtil;
+
+    @TempDir
+    Path basePath;
+    ImageManager imageManager;
+
+    Client clientA;
+    Client clientB;
+    Client hasItemClient;
+    Client privateClient;
+    Set<Client> publicClients;
+    Set<Item> publicItems;
 
     @BeforeEach
     void resetEntities() {
+        imageManager = new ImageManagerImpl(basePath.toString());
+
         clientA = clientRepository.save(ClientFixture.INFLUENCER.getInstance());
         clientB = clientRepository.save(ClientFixture.CREATOR.getInstance());
         hasItemClient = clientRepository.save(ClientFixture.SINGER.getInstance());
@@ -51,11 +72,19 @@ class ClientServiceTest {
 
         Item itemA = itemRepository.save(ItemFixture.PUBLIC_A.getInstance());
         Item itemB = itemRepository.save(ItemFixture.PUBLIC_B.getInstance());
-        Item notReadyItem = itemRepository.save(ItemFixture.PRIVATE_A.getInstance());
+        Item privateItem = itemRepository.save(ItemFixture.PRIVATE_A.getInstance());
+
+        ItemImage titleImageA = ItemImage.from(imageManager.createImageUrl(itemA.getId(), DEFAULT_TITLE_IMAGE_FILE_NAME, DEFAULT_TITLE_IMAGE));
+        ItemImage titleImageB = ItemImage.from(imageManager.createImageUrl(itemB.getId(), DEFAULT_TITLE_IMAGE_FILE_NAME, DEFAULT_TITLE_IMAGE));
+        ItemImage titleImagePrivate = ItemImage.from(imageManager.createImageUrl(privateItem.getId(), DEFAULT_TITLE_IMAGE_FILE_NAME, DEFAULT_TITLE_IMAGE));
+
+        itemA.setTitleImage(titleImageA);
+        itemB.setTitleImage(titleImageB);
+        privateItem.setTitleImage(titleImagePrivate);
 
         hasItemClient.addItem(itemA);
         hasItemClient.addItem(itemB);
-        hasItemClient.addItem(notReadyItem);
+        hasItemClient.addItem(privateItem);
 
         publicClients = Set.of(clientA, clientB, hasItemClient);
         publicItems = Set.of(itemA, itemB);
@@ -73,10 +102,14 @@ class ClientServiceTest {
 
         @Test
         @DisplayName("클라이언트의 공개된 상품들을 반환한다")
-        void returnItemsOfClient() {
+        void returnItemsOfClient() throws IOException {
             ClientDetailsResponseDto clientDetails = clientService.getDetails(hasItemClient.getId());
 
             assertThat(isEqual(publicItems, clientDetails.items())).isTrue();
+
+            for (ItemBriefInfoResponseDto itemDto : clientDetails.items()) {
+                imageUtil.isSameImage(itemDto.titleImageUrl(), DEFAULT_TITLE_IMAGE);
+            }
         }
 
         @Test
@@ -115,6 +148,12 @@ class ClientServiceTest {
     }
 
     private boolean isEqual(Set<Item> items, List<ItemBriefInfoResponseDto> dtos) {
+        Set<Long> itemIdSet = toSet(items, Item::getId);
+        Set<Long> dtoIdSet = toSet(dtos, ItemBriefInfoResponseDto::id);
+
+        Set<String> itemTitleImageUrlSet = toSet(items, Item::getTitleImageUrl);
+        Set<String> dtoTitleImageUrlSet = toSet(dtos, ItemBriefInfoResponseDto::titleImageUrl);
+
         Set<String> itemNameSet = toSet(items, Item::getName);
         Set<String> dtoNameSet = toSet(dtos, ItemBriefInfoResponseDto::name);
 
@@ -130,18 +169,9 @@ class ClientServiceTest {
                 .flatMap(Collection::stream)
                 .collect(Collectors.toSet());
 
-        System.out.println("itemNameSet = " + itemNameSet);
-        System.out.println("dtoNameSet = " + dtoNameSet);
-        System.out.println("itemDescriptionSet = " + itemDescriptionSet);
-        System.out.println("dtoDescriptionSet = " + dtoDescriptionSet);
-        System.out.println("itemUrlSet = " + itemUrlSet);
-        System.out.println("dtoUrlSet = " + dtoUrlSet);
-
-        System.out.println("itemNameSet.equals(dtoNameSet) = " + itemNameSet.equals(dtoNameSet));
-        System.out.println("itemDescriptionSet.equals(dtoDescriptionSet) = " + itemDescriptionSet.equals(dtoDescriptionSet));
-        System.out.println("itemUrlSet.equals(dtoUrlSet) = " + itemUrlSet.equals(dtoUrlSet));
-
-        return itemNameSet.equals(dtoNameSet) &&
+        return itemIdSet.equals(dtoIdSet) &&
+                itemTitleImageUrlSet.equals(dtoTitleImageUrlSet) &&
+                itemNameSet.equals(dtoNameSet) &&
                 itemDescriptionSet.equals(dtoDescriptionSet) &&
                 itemUrlSet.equals(dtoUrlSet);
     }

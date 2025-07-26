@@ -1,15 +1,15 @@
 package goodspace.backend.admin.service.itemImage;
 
-import goodspace.backend.admin.dto.itemImage.ItemImageDeleteRequestDto;
-import goodspace.backend.admin.dto.itemImage.ItemImageInfoResponseDto;
-import goodspace.backend.admin.dto.itemImage.ItemImageRegisterRequestDto;
-
-import java.util.List;
+import goodspace.backend.admin.dto.itemImage.*;
 
 public interface ItemImageManageService {
-    List<ItemImageInfoResponseDto> findByItem(long itemId);
+    TotalItemImageResponseDto findByItem(long itemId);
 
     ItemImageInfoResponseDto register(ItemImageRegisterRequestDto requestDto);
+
+    TitleImageInfoResponseDto registerTitleImage(ItemImageRegisterRequestDto requestDto);
+
+    TitleImageInfoResponseDto updateTitleImage(TitleImageUpdateRequestDto requestDto);
 
     void delete(ItemImageDeleteRequestDto requestDto);
 }

@@ -42,10 +42,17 @@ public class Item extends BaseEntity {
     @Builder.Default
     private final List<ItemImage> itemImages = new ArrayList<>();
 
+    @OneToOne(cascade = CascadeType.ALL, orphanRemoval = true)
+    private ItemImage titleImage;
+
     public List<String> getImageUrls() {
         return itemImages.stream()
                 .map(ItemImage::getImageUrl)
                 .toList();
+    }
+
+    public String getTitleImageUrl() {
+        return titleImage.getImageUrl();
     }
 
     public boolean isPublic() {
@@ -74,6 +81,16 @@ public class Item extends BaseEntity {
             this.itemImages.add(itemImage);
             itemImage.setItem(this);
         }
+    }
+
+    public void setTitleImage(ItemImage itemImage) {
+        this.titleImage = itemImage;
+        itemImage.setItem(this);
+    }
+
+    public void removeTitleImage() {
+        titleImage.setItem(null);
+        titleImage = null;
     }
 
     public void removeItemImage(ItemImage itemImage) {
